@@ -1,10 +1,15 @@
+import csv
 import os
 import tiktoken
 import nltk
+import pandas
 
 from openai import OpenAI
 
 GPT_MODEL = "gpt-3.5-turbo"
+EMBEDDING_MODEL = "text-embedding-ada-002"
+
+openai = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # Download the required NLTK data
 nltk.download("punkt")
@@ -16,7 +21,7 @@ def num_tokens(text: str, model: str = GPT_MODEL) -> int:
     return len(encoding.encode(text))
 
 
-def chunk_text(text: str, chunk_size: int = 300):
+def chunk_text(text: str, chunk_size: int = 300) -> list[str]:
     """Return the text in token chunks of roughly size `chunk_size`. Keep sentences together."""
     chunks = []
     sentences: list[str] = nltk.sent_tokenize(text)
@@ -32,7 +37,31 @@ def chunk_text(text: str, chunk_size: int = 300):
     return chunks
 
 
-openai = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+def create_embedding(chunk: str, model: str = EMBEDDING_MODEL) -> list[float]:
+    """Return an embedding created by OpenAI's embedding API"""
+    res = openai.embeddings.create(input=chunk, model=model)
+    return res.data[0].embedding
+
+
+def create_all_embeddings(
+    chunks: list[str], model: str = EMBEDDING_MODEL
+) -> pandas.DataFrame:
+    """
+    Return a dataframe with columns `text` and `embedding` that represents all of the
+    embeddings.
+    """
+    texts = []
+    embeddings = []
+
+    for chunk in chunks:
+        embedding = create_embedding(chunk, model)
+
+        texts.append(chunk)
+        embeddings.append(embedding)
+
+    return pandas.DataFrame(data={"text": texts, "embedding": embeddings})
+
+
 response = openai.chat.completions.create(
     messages=[
         {
