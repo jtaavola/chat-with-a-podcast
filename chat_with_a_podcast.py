@@ -1,8 +1,11 @@
 import csv
 import os
+import ast
 import tiktoken
 import nltk
+
 import pandas
+from pandas.core.api import DataFrame
 
 from openai import OpenAI
 
@@ -43,9 +46,7 @@ def create_embedding(chunk: str, model: str = EMBEDDING_MODEL) -> list[float]:
     return res.data[0].embedding
 
 
-def create_all_embeddings(
-    chunks: list[str], model: str = EMBEDDING_MODEL
-) -> pandas.DataFrame:
+def create_all_embeddings(chunks: list[str], model: str = EMBEDDING_MODEL) -> DataFrame:
     """
     Return a dataframe with columns `text` and `embedding` that represents all of the
     embeddings.
@@ -59,18 +60,18 @@ def create_all_embeddings(
         texts.append(chunk)
         embeddings.append(embedding)
 
-    return pandas.DataFrame(data={"text": texts, "embedding": embeddings})
+    return DataFrame(data={"text": texts, "embedding": embeddings})
 
 
-response = openai.chat.completions.create(
-    messages=[
-        {
-            "role": "system",
-            "content": "Tell me a joke.",
-        },
-    ],
-    model=GPT_MODEL,
-    temperature=0,
-)
+def read_embeddings_from_csv(embeddings_file: str) -> DataFrame:
+    """Return a dataframe of embeddings from a csv file."""
+    df = pandas.read_csv(embeddings_file)
 
-print(response.choices[0].message.content)
+    # convert embeddings from CSV str type back to list type
+    df["embedding"] = df["embedding"].apply(ast.literal_eval)
+    return df
+
+
+def write_embeddings_to_csv(df: DataFrame, file_path: str) -> None:
+    """Write a dataframe of embeddings to a csv file"""
+    df.to_csv(file_path, index=False, quoting=csv.QUOTE_ALL)
